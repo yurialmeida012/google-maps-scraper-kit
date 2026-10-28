@@ -173,10 +173,28 @@ class EndToEnd(unittest.TestCase):
         self.assertIn("cell 4/4: 3 rows, 6 unique so far", text)
         self.assertIn("cell 3/4 skipped", text)
         self.assertIn("dropped 1 rows outside the city box", text)
-        with open(out, newline="") as f:
+        with open(out, newline="", encoding="utf-8-sig") as f:
             rows = list(csv.reader(f))
         self.assertEqual(rows[0], scrape.LEAD)
         self.assertEqual([r[0] for r in rows[1:]], ["Biz A", "Biz B", "Biz C", "Biz D", "Biz E"])
+
+
+class FormatWhatsApp(unittest.TestCase):
+    def test_brazil_formats(self):
+        self.assertEqual(scrape.format_whatsapp("(12) 99123-4567"), "https://wa.me/5512991234567")
+        self.assertEqual(scrape.format_whatsapp("+55 12 3921-1234"), "https://wa.me/551239211234")
+        self.assertEqual(scrape.format_whatsapp("012988887777"), "https://wa.me/5512988887777")
+        self.assertEqual(scrape.format_whatsapp(""), "")
+
+    def test_site_whatsapp(self):
+        self.assertEqual(
+            scrape.format_whatsapp("", site_wa="https://wa.me/5512999998888"),
+            "https://wa.me/5512999998888"
+        )
+        self.assertEqual(
+            scrape.format_whatsapp("", site_wa="https://api.whatsapp.com/send?phone=5512988881111"),
+            "https://wa.me/5512988881111"
+        )
 
 
 if __name__ == "__main__":

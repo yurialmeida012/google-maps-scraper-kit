@@ -26,12 +26,17 @@ Notes:
 import argparse, csv, functools, io, json, math, os, re, sys, time, urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
-ENV_KEYS = ("SCRAPER_BASE_URL", "SCRAPER_PORT", "SCRAPER_API_KEY")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+ENV_KEYS = ("SCRAPER_BASE_URL", "SCRAPER_PORT", "SCRAPER_API_KEY", "SCRAPER_LANG", "GOOGLE_MAPS_API_KEY")
 
 
 def load_env_file():
-    """Read SCRAPER_* from the kit's .env, the same file docker compose reads, so a remapped
-    port needs one edit. Variables already set in the environment win over the file."""
+    """Read SCRAPER_* and GOOGLE_* from the kit's .env, the same file docker compose reads.
+    Variables already set in the environment win over the file."""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, ".env")
     try:
         with open(path) as f:
@@ -46,10 +51,43 @@ def load_env_file():
 load_env_file()
 BASE = os.environ.get("SCRAPER_BASE_URL") or f"http://localhost:{os.environ.get('SCRAPER_PORT') or '8080'}"
 KEY = os.environ.get("SCRAPER_API_KEY", "")
-# The 8 lead fields: what you use to contact and qualify a lead.
-# Everything else (geo coordinates, IDs, hours, images, review blobs) is dropped by default.
-LEAD = ["title", "phone", "emails", "website", "category", "address", "review_rating", "review_count"]
+GOOGLE_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+# The lead fields: what you use to contact and qualify a lead.
+# Added 'whatsapp' for direct sales outreach (formatted as https://wa.me/55...)
+# Added 'latitude' and 'longitude' for map visualization
+LEAD = ["title", "phone", "whatsapp", "emails", "website", "category", "address", "review_rating", "review_count", "latitude", "longitude"]
 UA = "google-maps-scraper-kit/1.1 (https://github.com/Mahanaicoach/google-maps-scraper-kit)"
+
+# Regex to detect WhatsApp links directly on business websites
+WA_SITE_RE = re.compile(
+    r"https?://(?:wa\.me/|api\.whatsapp\.com/send\?(?:[^\"'>\s]*&)?phone=|web\.whatsapp\.com/send\?(?:[^\"'>\s]*&)?phone=)(\+?[0-9]{10,15})",
+    re.I
+)
+
+
+def format_whatsapp(phone, site_wa=""):
+    """Format phone number or extracted WhatsApp URL into a direct https://wa.me/ link.
+    Supports Brazilian formats (DDD + 8 or 9 digits, e.g., (12) 99123-4567) and international numbers."""
+    if site_wa:
+        digits = re.sub(r"\D", "", site_wa)
+        if len(digits) >= 10:
+            return f"https://wa.me/{digits}"
+    if not phone:
+        return ""
+    digits = re.sub(r"\D", "", phone)
+    if not digits:
+        return ""
+    if digits.startswith("0") and len(digits) in (11, 12):
+        digits = digits[1:]
+    # Brazilian number with 10 or 11 digits (DDD + number)
+    if len(digits) in (10, 11):
+        return f"https://wa.me/55{digits}"
+    # Brazilian number already starting with 55 (55 + DDD + number)
+    elif len(digits) in (12, 13) and digits.startswith("55"):
+        return f"https://wa.me/{digits}"
+    elif len(digits) >= 10:
+        return f"https://wa.me/{digits}"
+    return ""
 
 
 def req(method, path, body=None):
@@ -63,8 +101,27 @@ def req(method, path, body=None):
 
 
 def geocode(place, with_bbox=False):
-    """City/place name -> ('lat','lon') strings via Nominatim, or None.
-    with_bbox=True returns ('lat','lon', [south, north, west, east]) instead."""
+    """City/place name -> ('lat','lon') strings via Google Maps Geocoding API (if key available)
+    or Nominatim, or None. with_bbox=True returns ('lat','lon', [south, north, west, east]) instead."""
+    if GOOGLE_KEY:
+        try:
+            q = urllib.parse.urlencode({"address": place, "key": GOOGLE_KEY})
+            url = f"https://maps.googleapis.com/maps/api/geocode/json?{q}"
+            r = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(r, timeout=10) as resp:
+                data = json.loads(resp.read())
+            if data.get("status") == "OK" and data.get("results"):
+                loc = data["results"][0]["geometry"]["location"]
+                ll = (str(loc["lat"]), str(loc["lng"]))
+                if with_bbox and "viewport" in data["results"][0]["geometry"]:
+                    vp = data["results"][0]["geometry"]["viewport"]
+                    bbox = [str(vp["southwest"]["lat"]), str(vp["northeast"]["lat"]),
+                            str(vp["southwest"]["lng"]), str(vp["northeast"]["lng"])]
+                    return ll + (bbox,)
+                return ll
+        except Exception as e:
+            print(f"  (Google geocoding error: {e}, falling back to Nominatim)", file=sys.stderr)
+
     q = urllib.parse.urlencode({"format": "json", "limit": 1, "q": place})
     url = f"https://nominatim.openstreetmap.org/search?{q}"
     r = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -202,7 +259,10 @@ def _fetch_cached(url):
     return _fetch_html(url, timeout=8)
 
 def _find_socials(html):
-    out = {"instagram": "", "facebook": "", "linkedin": ""}
+    out = {"instagram": "", "facebook": "", "linkedin": "", "whatsapp": ""}
+    wa_m = WA_SITE_RE.search(html or "")
+    if wa_m:
+        out["whatsapp"] = format_whatsapp("", site_wa=wa_m.group(0))
     for plat, rx in SOCIAL_RE.items():
         for m in rx.finditer(html or ""):
             h = m.group(1).lower()
@@ -221,7 +281,12 @@ def enrich_socials(results, workers=8):
     todo = [r for r in results if r.get("website")]
     done = 0
     def work(r):
-        r.update(_find_socials(_fetch_cached(r["website"])))
+        soc = _find_socials(_fetch_cached(r["website"]))
+        r["instagram"] = soc["instagram"]
+        r["facebook"] = soc["facebook"]
+        r["linkedin"] = soc["linkedin"]
+        if soc["whatsapp"] and (not r.get("whatsapp") or "wa.me/55" not in r.get("whatsapp")):
+            r["whatsapp"] = soc["whatsapp"]
     with ThreadPoolExecutor(max_workers=workers) as ex:
         for _ in ex.map(work, todo):
             done += 1
@@ -319,6 +384,8 @@ def main():
     ap.add_argument("--json", action="store_true", help="write JSON instead of the default CSV")
     ap.add_argument("--full", action="store_true", help="keep ALL raw columns (default: lean lead fields)")
     ap.add_argument("--fields", help="comma-separated columns to keep (overrides the default lead set)")
+    ap.add_argument("--lang", default=os.environ.get("SCRAPER_LANG", "pt"),
+                    help="language for Google Maps results (default: pt)")
     ap.add_argument("--socials", action="store_true",
                     help="also find Instagram/Facebook/LinkedIn from each website (0 LLM tokens; slower)")
     a = ap.parse_args()
@@ -370,11 +437,11 @@ def main():
     except Exception as e:
         sys.exit(f"✗ Scraper not reachable at {BASE} — run 'docker compose up -d' first.\n  ({e})")
 
-    body = {"name": "scrape-py", "keywords": keywords, "lang": "en", "zoom": 15,
+    body = {"name": "scrape-py", "keywords": keywords, "lang": a.lang, "zoom": 15,
             "lat": str(lat), "lon": str(lon), "fast_mode": False, "radius": 10000,
             "depth": a.depth, "email": a.email, "max_time": a.max_time}
     if not a.grid:
-        print(f"▶ Creating job: {len(keywords)} keyword(s) @ {lat},{lon} depth={a.depth} email={a.email}")
+        print(f"▶ Creating job: {len(keywords)} keyword(s) @ {lat},{lon} depth={a.depth} email={a.email} lang={a.lang}")
         for k in keywords:
             print(f"    • {k}")
         try:
@@ -383,7 +450,7 @@ def main():
             sys.exit(str(e))
     else:
         print(f"▶ Grid {a.grid}x{a.grid}: {len(cells)} jobs, one at a time, "
-              f"{len(keywords)} keyword(s) depth={a.depth} email={a.email}")
+              f"{len(keywords)} keyword(s) depth={a.depth} email={a.email} lang={a.lang}")
         for k in keywords:
             print(f"    • {k}")
         job_id, rows = None, []
@@ -403,6 +470,12 @@ def main():
         kept = [r for r in rows if in_bbox(r, bbox)]
         print(f"  dropped {len(rows) - len(kept)} rows outside the city box")
         rows = kept
+
+    # Pre-populate WhatsApp link from phone number for all rows
+    for r in rows:
+        if not r.get("whatsapp"):
+            r["whatsapp"] = format_whatsapp(r.get("phone", ""))
+
     if a.full:
         fields = list(rows[0].keys()) if rows else LEAD
     elif a.fields:
@@ -422,7 +495,7 @@ def main():
               f"= {total}/{n} ({round(100 * total / n) if n else 0}%)")
 
     if a.socials:
-        print("▶ Finding socials (Instagram / Facebook / LinkedIn) on each website…")
+        print("▶ Finding socials (Instagram / Facebook / LinkedIn / WhatsApp) on each website…")
         print("  ℹ Cost: this runs in CODE = 0 LLM tokens. It only adds ~40–50 tokens per business")
         print("    IF you load the results into an AI's context (negligible if you keep the file on disk).")
         enrich_socials(results)
@@ -434,16 +507,16 @@ def main():
     as_json = a.json or (a.out and a.out.lower().endswith(".json"))
     out = a.out or f"results-{job_id[:8]}.{'json' if as_json else 'csv'}"
     if as_json:
-        with open(out, "w") as f:
+        with open(out, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
     else:
-        with open(out, "w", newline="") as f:
+        with open(out, "w", newline="", encoding="utf-8-sig") as f:
             w = csv.DictWriter(f, fieldnames=fields)
             w.writeheader()
             w.writerows(results)
     print(f"  saved → {out}")
     for r in results[:5]:
-        tail = f" | IG:{r.get('instagram','') or '—'}" if a.socials else f" | {r.get('website','')}"
+        tail = f" | IG:{r.get('instagram','') or '—'}" if a.socials else f" | WA:{r.get('whatsapp','') or '—'}"
         print(f"  • {r.get('title','')} | {r.get('phone','')} | {r.get('emails','')}{tail}")
 
 

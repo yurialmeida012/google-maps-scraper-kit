@@ -1,0 +1,83 @@
+{
+  "descricao": "Nichos de anunciantes com alto potencial de investimento em TV aberta regional (Vale do Paraíba - SP)",
+  "categorias": [
+    {
+      "id": "automotivo",
+      "nome": "Setor Automotivo (Concessionárias e Revendas)",
+      "justificativa_tv": "Um dos maiores anunciantes de TV aberta: lançamentos de modelos, feirões de final de semana e pós-venda.",
+      "keywords": [
+        "concessionaria de veiculos",
+        "concessionaria de motos",
+        "loja de veiculos seminovos",
+        "centro automotivo",
+        "loja de pneus e alinhamento"
+      ]
+    },
+    {
+      "id": "imobiliario",
+      "nome": "Construção Civil & Imobiliário (Lançamentos e Lojas)",
+      "justificativa_tv": "Forte no Vale (muitos loteamentos e condomínios fechados em SJC/Taubaté/Litoral): alto ticket e campanhas institucionais.",
+      "keywords": [
+        "construtora e incorporadora",
+        "loteamentos e condominios fechados",
+        "imobiliaria grande porte",
+        "home center materiais de construcao",
+        "loja de tintas e acabamentos"
+      ]
+    },
+    {
+      "id": "saude",
+      "nome": "Saúde, Hospitais & Estética (Clínicas e Planos)",
+      "justificativa_tv": "Credibilidade na TV aberta: hospitais privados, redes de clínicas odontológicas, laboratórios e medicina diagnóstica.",
+      "keywords": [
+        "hospital particular e maternidade",
+        "clinica medica multidisciplinar",
+        "clinica odontologica implantes",
+        "laboratorio analises clinicas",
+        "clinica de cirurgia plastica e estetica"
+      ]
+    },
+    {
+      "id": "educacao",
+      "nome": "Educação Privada (Faculdades e Colégios)",
+      "justificativa_tv": "Campanhas sazonais pesadas de vestibular (junho/julho e outubro/fevereiro) e matrículas escolares.",
+      "keywords": [
+        "faculdade e universidade particular",
+        "colegio particular e ensino medio",
+        "escola de idiomas",
+        "escola de cursos tecnicos"
+      ]
+    },
+    {
+      "id": "varejo_moveis",
+      "nome": "Varejo, Móveis, Colchões & Decoração",
+      "justificativa_tv": "Varejo tradicional de TV com ofertas de varejo, promoções de feriado e queima de estoque.",
+      "keywords": [
+        "loja de moveis e decoracao",
+        "loja de colchões",
+        "loja de moveis planejados",
+        "loja de eletrodomesticos e eletronicos"
+      ]
+    },
+    {
+      "id": "supermercados",
+      "nome": "Supermercados, Atacarejos & Alimentos",
+      "justificativa_tv": "Anúncios semanais de ofertas de fim de semana (quinta/sexta/sábado) com alto volume de inserções.",
+      "keywords": [
+        "supermercado regional",
+        "atacarejo distribuidora alimentos",
+        "churrascaria e restaurante grande porte"
+      ]
+    },
+    {
+      "id": "financeiro",
+      "nome": "Cooperativas de Crédito & Finanças",
+      "justificativa_tv": "Cooperativas e empresas de crédito que investem fortemente em imagem institucional e apoio à comunidade.",
+      "keywords": [
+        "cooperativa de credito",
+        "instituicao financeira e consorcio",
+        "corretora de seguros"
+      ]
+    }
+  ]
+}

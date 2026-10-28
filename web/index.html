@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vale Leads TV - Prospecção Comercial & Inteligência Geográfica</title>
+  
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <!-- Google Maps API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCwx0VhKVcVAcgvY0yuXBCJuRAWbAVnGrE&libraries=places"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+            <polyline points="17 2 12 7 7 2"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">VALE LEADS <span class="badge-tv">TV BROADCAST</span></h1>
+          <p class="brand-subtitle">Prospecção Comercial de Anunciantes • Vale do Paraíba & Litoral</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Seletor de Arquivos CSV -->
+        <div class="file-selector-box">
+          <label for="fileSelect" class="selector-label">Base de Leads:</label>
+          <select id="fileSelect" class="select-input">
+            <option value="">Carregando arquivos...</option>
+          </select>
+        </div>
+
+        <!-- Status do Motor -->
+        <div class="engine-badge" id="engineStatusBadge" title="Status do Motor Scraper">
+          <span class="status-dot"></span>
+          <span class="status-text">Verificando...</span>
+        </div>
+
+        <!-- Botões de Ação -->
+        <button id="btnNewScrape" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Nova Prospecção
+        </button>
+
+        <button id="btnExportCsv" class="btn btn-secondary" title="Exportar leads exibidos para CSV">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exportar
+        </button>
+
+        <button id="btnRefresh" class="btn btn-ghost" title="Recarregar Dados">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- METRICS BAR -->
+    <section class="metrics-ribbon">
+      <div class="metric-card">
+        <div class="metric-icon icon-leads">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Total de Empresas</span>
+          <span class="metric-value" id="statTotalLeads">0</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-whatsapp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Com WhatsApp</span>
+          <span class="metric-value" id="statWhatsApp">0</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-email">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Com E-mails</span>
+          <span class="metric-value" id="statEmail">0</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-rating">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Nota Média Google</span>
+          <span class="metric-value" id="statAvgRating">0.0</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon icon-reviews">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Total Avaliações</span>
+          <span class="metric-value" id="statTotalReviews">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="main-workspace">
+      <!-- PAINEL ESQUERDO: MAPA INTERATIVO -->
+      <section class="map-panel">
+        <div class="map-toolbar">
+          <div class="map-title-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+            <span class="map-title">Mapa de Calor & Distribuição de Prospects</span>
+          </div>
+
+          <div class="map-controls">
+            <button id="btnRecenter" class="map-btn" title="Recentralizar nos Leads">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+              Enquadrar Todos
+            </button>
+            <div class="map-layer-selector">
+              <select id="mapStyleSelect" class="map-select">
+                <option value="google_streets" selected>Google Maps Padrão</option>
+                <option value="google_hybrid">Google Maps Satélite (Híbrido)</option>
+                <option value="google_terrain">Google Maps Relevo/Terreno</option>
+                <option value="streets">OpenStreetMap Colorido</option>
+                <option value="dark">Dark Moderno (Esri)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="map" class="interactive-map"></div>
+      </section>
+
+      <!-- PAINEL DIREITO: LISTA DE LEADS & FILTROS -->
+      <aside class="sidebar-panel">
+        <div class="sidebar-header">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="searchInput" placeholder="Buscar por nome, rua, telefone..." class="search-input" />
+            <button id="btnClearSearch" class="btn-clear" title="Limpar busca">×</button>
+          </div>
+
+          <!-- Filtros Rápidos -->
+          <div class="filters-row">
+            <select id="categoryFilter" class="filter-select">
+              <option value="">Todas as Categorias</option>
+            </select>
+
+            <select id="ratingFilter" class="filter-select">
+              <option value="0">Qualquer Nota</option>
+              <option value="4.5">⭐ 4.5 ou mais</option>
+              <option value="4.0">⭐ 4.0 ou mais</option>
+            </select>
+          </div>
+
+          <div class="toggles-row">
+            <label class="toggle-pill">
+              <input type="checkbox" id="toggleOnlyWa">
+              <span>Só com WhatsApp</span>
+            </label>
+            <label class="toggle-pill">
+              <input type="checkbox" id="toggleOnlyEmail">
+              <span>Só com E-mail</span>
+            </label>
+          </div>
+
+          <div class="results-count-bar">
+            <span>Mostrando <b id="visibleCount">0</b> de <span id="totalFilterCount">0</span> leads</span>
+            <span class="sort-indicator">Ordenado por Nota</span>
+          </div>
+        </div>
+
+        <!-- Lista Rolável de Cards dos Leads -->
+        <div class="leads-list-container" id="leadsList">
+          <div class="empty-state">
+            <p>Carregando leads da base selecionada...</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- MODAL DE NOVA PROSPECÇÃO -->
+    <div class="modal-overlay" id="scrapeModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title-box">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <h3>Iniciar Nova Prospecção Comercial</h3>
+          </div>
+          <button class="modal-close" id="btnCloseModal">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="scrapeCity" class="form-label">📍 Selecione a Praça / Cidade:</label>
+            <select id="scrapeCity" class="form-input">
+              <option value="">Carregando cidades...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="scrapeNiche" class="form-label">🎯 Selecione o Nicho de Anunciantes:</label>
+            <select id="scrapeNiche" class="form-input">
+              <option value="">Carregando nichos...</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="customQueryGroup" style="display: none;">
+            <label for="scrapeCustomQuery" class="form-label">🔍 Termo Livre de Busca:</label>
+            <input type="text" id="scrapeCustomQuery" placeholder="Ex: academias de crossfit, óticas de luxo" class="form-input" />
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="scrapeDepth" class="form-label">⚙️ Profundidade da Busca:</label>
+              <select id="scrapeDepth" class="form-input">
+                <option value="2">Rápida (~20 a 40 leads)</option>
+                <option value="3" selected>Padrão (~40 a 60 leads)</option>
+                <option value="5">Profunda (~80 a 100 leads)</option>
+                <option value="8">Ampla (~120+ leads)</option>
+              </select>
+            </div>
+
+            <div class="form-group-checkbox">
+              <label class="checkbox-container">
+                <input type="checkbox" id="scrapeSocials" checked>
+                <span class="checkmark"></span>
+                <span class="cb-label">Buscar Redes Sociais & WhatsApp nos Sites</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Console / Log de Execução -->
+          <div class="execution-log-box" id="executionLogBox" style="display: none;">
+            <div class="log-header">
+              <span>Terminal de Execução:</span>
+              <span class="log-status" id="logStatusText">Em andamento...</span>
+            </div>
+            <pre class="log-content" id="logContent"></pre>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelModal">Cancelar</button>
+          <button class="btn btn-primary" id="btnStartScrape">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Disparar Raspagem
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Leaflet MarkerCluster JS -->
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  
+  <!-- App JS -->
+  <script src="app.js"></script>
+</body>
+</html>
